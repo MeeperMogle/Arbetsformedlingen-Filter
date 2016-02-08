@@ -1,189 +1,232 @@
-﻿// ==UserScript==
+// ==UserScript==
 // @name       Arbetsförmedlingen Filter
-// @version    1.0.0
+// @version    2.0.0
 // @author     Mogle
 // @namespace  https://github.com/MeeperMogle
-// @include    http*://*.arbetsformedlingen.se/*
-// @require    http://code.jquery.com/jquery-1.9.1.js
+// @match      http*://www.arbetsformedlingen.se/*
+// @grant      none
+// @require    http://code.jquery.com/jquery-2.1.4.min.js
+// @require    http://code.jquery.com/ui/1.11.4/jquery-ui.min.js
+// @resource   uiCSS http://code.jquery.com/ui/1.11.4/themes/smoothness/jquery-ui.css
+// @grant      GM_addStyle
+// @grant      GM_getResourceText
 // ==/UserScript==
 
-// Add case-insensitive search for Contains-matches
-jQuery.expr[":"].Contains = jQuery.expr.createPseudo(function(arg) {
+// Name of this project
+var projectName = "Arbetsförmedlingen filter";
+
+// Case-insensitive :contains selector
+$.expr[":"].contains = $.expr.createPseudo(function(arg) {
     return function( elem ) {
-        return jQuery(elem).text().toUpperCase().indexOf(arg.toUpperCase()) >= 0;
+        return $(elem).text().toUpperCase().indexOf(arg.toUpperCase()) >= 0;
     };
 });
 
-// If we're looking at an Annons, change the Tab <title> to the name of the Annons.
-// Hard to keep track of multiple tabs if all are named "Arbetsförmedlingen"...
-if($('html').html().indexOf("Annons-ID", 0) > -1){
-    $('title').text( $('.showAd-head > h1').html() );
+// Add jQuery UI-stylesheet to the page
+var uiCSS = GM_getResourceText ("uiCSS");
+GM_addStyle (uiCSS);
+
+// Add button to the page for showing the filter-settings
+var settingsButton = "<input type=button value='Filter' id=filterButton>";
+$('#svid12_30f22bf0149c30b5a7e5de9 ul').prepend("<li style='display:inline;'>"+settingsButton+"</li>");
+
+// Add the popup-dialog which will be used
+$('#svid12_30f22bf0149c30b5a7e5de9').append('<div id="settingsDialog" title="'+projectName+' - Inställningar"></div>');
+
+// Activate tooltips (hover-text) on the settings
+$(function() {
+    $( '#settingsDialog' ).tooltip();
+});
+
+// Set the options for the dialog box
+$(function() {
+    $( "#settingsDialog" ).dialog(
+        {
+            autoOpen: true,
+            width: 650,
+            height: 540,
+            resizable: true,
+            position: {my: "top", at: "bottom", of: $('#svid10_30f22bf0149c30b5a7e5ddc')}
+        }
+    );
+});
+
+// Use the Filter-button to toggle the settings-dialog
+$('#filterButton').click(function(){
+    if($("#settingsDialog").dialog("isOpen")){
+        $("#settingsDialog").dialog("close");
+    } else {
+        $("#settingsDialog").dialog("open");
+    }
+});
+
+// Make sure the dialog with the settings is hidden by default,
+// or it will flash for half a second on each page reload. Not ideal!
+$('#settingsDialog').hide();
+
+// Create the HTML that holds the settings
+var settingsHtml = "";
+settingsHtml += "<h3 title='Visa inte jobb med Rubriker som innehåller dessa ord. En per rad.'>Inte dessa Rubriker</h3>";
+settingsHtml += "<textarea style='width:100%;height:100px;resize:both;' id=unwantedTitles></textarea>";
+settingsHtml += "<br><input type=submit value=Spara id=saveUnwantedTitles>";
+settingsHtml += "<span style='float:right';><input type=checkbox id=regexTitles> Regex <span class=regexInfo>(avancerat)</span></span>";
+settingsHtml += "<br><hr><br>";
+settingsHtml += "<h3 title='Visa inte jobb som kommer från Arbetsgivare med dessa ord i namnet. En per rad.'>Inte dessa Arbetsgivare</h3>";
+settingsHtml += "<textarea style='width:100%;height:100px;resize:both;' id=unwantedCompanies></textarea>";
+settingsHtml += "<br><input type=submit value=Spara id=saveUnwantedCompanies>";
+settingsHtml += "<span style='float:right';><input type=checkbox id=regexCompanies> Regex <span class=regexInfo>(avancerat)</span></span>";
+settingsHtml += "<br><hr><br>";
+settingsHtml += "<h3 title='Visa inte jobb som är på Arbetsorter med dessa ord i namnet. En per rad.'>Inte dessa Arbetsorter</h3>";
+settingsHtml += "<textarea style='width:100%;height:100px;resize:both;' id=unwantedCities></textarea>";
+settingsHtml += "<br><input type=submit value=Spara id=saveUnwantedCities>";
+settingsHtml += "<span style='float:right';><input type=checkbox id=regexCities> Regex <span class=regexInfo>(avancerat)</span></span>";
+$('#settingsDialog').append(settingsHtml);
+
+$('.regexInfo').css('text-decoration','underline').attr('title','Avancerad filtrering. Klicka för mer information.');
+$('.regexInfo').click(function(){
+    window.open("https://developer.mozilla.org/en/docs/Web/JavaScript/Guide/Regular_Expressions","_whatIsRegex");
+});
+
+
+
+// Set the structure for the stored information
+var abfSettings;
+
+// Use local storage to make the settings persistent
+function saveSettings(){
+    localStorage.setItem("abfFilterSettings", JSON.stringify(abfSettings));
 }
-// Otherwise, we assume you're looking for Annonser.
-// Load the settings and show the controllers!
-else{
-    // Get the settings from our local storage
-    settings = localStorage.getItem('hiddenArbetsformedlingen');
+function loadSettings(){
+    abfSettings = localStorage.getItem("abfFilterSettings");
     
-    // If this didn't exist, create a default one.
-    if(!settings){
-        settings = {
-            "hidden": ["2148404"],
-            "hideTitles": ["kung", "drottning", "president", "annat konstigt jobb"],
-            "hideEmployers": ["hitler ab", "stalin ab", "lurendrejare"],
-            "hideCities": ['månen']
+    if(abfSettings === null){
+        abfSettings = {
+            noTitles: ["arbetslös","sjukskriven"],
+            noCompanies: ["elakt företag","dåliga villkor ab"],
+            noCities: ["månen","mars"],
+            regexTitles: false,
+            regexCompanies: false,
+            regexCities: false
         };
-        
-        // Save the default one, so that we have one in the future.
-        localStorage.setItem('hiddenArbetsformedlingen', JSON.stringify(settings));
+        saveSettings();
+    } else {
+        abfSettings = JSON.parse(abfSettings);
     }
-    else{
-        // If we had one saved, it's a JSON structure saved as a string.
-        // Parse it into JSON, and we're good to go.
-        settings = JSON.parse(settings);
-    }
-    
-    function hideAllCorrectStuff(){
-        // Hide all manually hidden Annonser
-        for (i = 0; i < settings.hidden.length; i++) {
-            $('a[href*="&ids=' + settings.hidden[i] + '"]').parent().parent().hide();
-        }
-        
-        // Loop through all Titles (same thing for Employers and Cities; only commenting this once...)
-        for(var i=0; i<settings.hideTitles.length; i++) {
-            // Create a selector pointing to:
-            // All 3rd TDs which contains this Title
-            // Hide the TR which contains thos, i.e remove that row from the table.
-            selector = "td:nth-child(3):Contains('" + settings.hideTitles[i] + "')";
-            $(selector).parent().hide();
-            
-            // Add this Title to the string which will go into the textbox
-            unwantedJobs += settings.hideTitles[i];
-            
-            // If this isn't the last one, add a new line at the end.
-            if( (i+1) < (settings.hideTitles.length ) )
-            unwantedJobs += "\n";
-        }
-        for(var i=0; i<settings.hideEmployers.length; i++) {
-            selector = "td:nth-child(4):Contains('" + settings.hideEmployers[i] + "')";
-            $(selector).parent().hide();
-            
-            unwantedEmployers += settings.hideEmployers[i];
-            
-            if( (i+1) < (settings.hideEmployers.length ) )
-            unwantedEmployers += "\n";
-        }
-        for(var i=0; i<settings.hideCities.length; i++) {
-            selector = "td:nth-child(5):Contains('" + settings.hideCities[i] + "')";
-            $(selector).parent().hide();
-            
-            unwantedCities += settings.hideCities[i];
-            
-            if( (i+1) < (settings.hideCities.length ) )
-            unwantedCities += "\n";
-        }
-    }
-    
-    
-    
-    // Add X links to each Annons.
-    // These can then be clicked to manually hide individual Annonsers.
-    $('tr.odd').each(function(){
-        var link = "<a class='hider' href='" + $(this).children('td').eq(0).children('input').eq(0).attr("value") + "'>X</a>";
-        $(this).html( $(this).html() + "<td>" + link + "</td>");
-    });
-    $('tr.even').each(function(){
-        var link = "<a class='hider' href='" + $(this).children('td').eq(0).children('input').eq(0).attr("value") + "'>X</a>";
-        $(this).html( $(this).html() + "<td>" + link + "</td>");
-    });
-    
-    // Once an X is clicked, hide that individual Annons manually.
-    $('a.hider').click(function(){
-        settings.hidden[settings.hidden.length] = $(this).attr("href");
-        localStorage.setItem('hiddenArbetsformedlingen', JSON.stringify(settings));
-        $(this).parent().parent().hide();
-        return false;
-    });
-    
-    // Change the functionality of less important buttons to
-    // resetting the manually hidden Annonser.
-    $('#ctl00_mainCPH_resultatLista_prenumereraButton').hide();
-    $('#ctl00_mainCPH_resultatLista_visaValdaAnnonserBtn').attr("value","Visa manuellt gömda jobb");
-    $('#ctl00_mainCPH_resultatLista_visaValdaAnnonserBtn').click(function(){      
-        // Show all Annonser in the Hidden array
-        for (i = 0; i < settings.hidden.length; i++) {
-            $('a[href*="&ids=' + settings.hidden[i] + '"]').parent().parent().show();
-        }
-        
-        // Reset the Hidden array
-        settings.hidden = ["2148404"];
-        localStorage.setItem('hiddenArbetsformedlingen', JSON.stringify(settings));
-        
-        return false;
-    });
-    
-    // Variables for storing the text in the lists of unwanted stuff
-    var selector;
-    var unwantedJobs = "";
-    var unwantedEmployers = "";
-    var unwantedCities = "";
-    
-    // meepmeep
-    hideAllCorrectStuff();
-    
-    // HTML for the controllers
-    var controllerHTML = "<table id=hideControllers border=0 cellspacing=0 cellpadding=0>"
-    +"<tr><td><br><h1>Göm jobb vars...</h1>"
-    
-    +"<p><b>Rubrik innehåller...</b>"
-    +"<br><textarea id=jobbtitlarLista cols=30 rows=7>" + unwantedJobs + "</textarea>"
-    
-    +"<p><b>Arbetsgivare innehåller...</b>"
-    +"<br><textarea id=arbetsgivareLista cols=30 rows=7>" + unwantedEmployers + "</textarea>"
-    
-    +"<p><b>Arbetsort innehåller...</b>"
-    +"<br><textarea id=arbetsortLista cols=30 rows=7>" + unwantedCities + "</textarea>"
-    
-    +"<p><input type=button value=Spara id=saveHiddenSettings>"
-    +"</td></tr></table>";
-    $('#navigation').parent().html( $('#navigation').parent().html() + controllerHTML );
-    
-    $(".showAd-table-left").parent().show();
-    
-    // When the Save-button is pressed...
-    $('#saveHiddenSettings').click(function(){
-        // Fetch Titles, Employers and Cities into arrays,
-        // from the textboxes,
-        // using a New Line as a separator.
-        var titles = $('#jobbtitlarLista').val().split("\n");
-        var employers = $('#arbetsgivareLista').val().split("\n");
-        var cities = $('#arbetsortLista').val().split("\n");
-        
-        // Update the Settings with these new values.
-        settings.hideTitles = titles.slice();
-        settings.hideEmployers = employers.slice();
-        settings.hideCities = cities.slice();
-        
-        // Save the Settings.
-        localStorage.setItem('hiddenArbetsformedlingen', JSON.stringify(settings));
-        
-        // To-Do:
-        // - Re Show everything - CHECK!
-        // - Re Hide what shall be hidden - CHECK!
-        // - Stop infinite scroll-down - CHECK!
-        
-        // Un-Hide everything
-        $('tr[style*="display: none;"]').show();
-        
-        // Re-Hide the stuff that should be hidden according to new rules
-        hideAllCorrectStuff();
-    });
-    
-    // Move the controllers along with you as you scroll
-    window.onscroll = scrollHandler;
-    function scrollHandler(){        
-        if ( window.pageYOffset > 400 && (window.pageYOffset < document.body.offsetHeight - (416 + 380) ) ){
-            $('#hideControllers').css("margin-top", (window.pageYOffset - 400) + "px");
+}
+loadSettings();
+
+// Populate the Settings with the correct values
+for(var i=0; i<abfSettings.noTitles.length;i++){
+    $('#unwantedTitles').append(abfSettings.noTitles[i] + "\n");
+}
+for(var i=0; i<abfSettings.noCompanies.length;i++){
+    $('#unwantedCompanies').append(abfSettings.noCompanies[i] + "\n");
+}
+for(var i=0; i<abfSettings.noCities.length;i++){
+    $('#unwantedCities').append(abfSettings.noCities[i] + "\n");
+}
+
+$('#regexTitles').attr('checked',abfSettings.regexTitles);
+$('#regexCompanies').attr('checked',abfSettings.regexCompanies);
+$('#regexCities').attr('checked',abfSettings.regexCities);
+
+
+
+// General function for filtering out results.
+// Enter these parameters: Filter array, css selector for the object inside the TD, boolean of whether to use Regex
+function filterOut(terms, aSelector, usingRegex){
+    // Want to use regex?
+    if(usingRegex){
+        // For each of the select:ed objects...
+        $(aSelector).each(function(){
+            // Fetch the text - only once, for better performance
+            var targetText = $(this).html();
+
+            // Loop through the filter-terms
+            for(var i=0; i<terms.length;i++){
+                // Generate a regular expression from it
+                var re = new RegExp(terms[i],"i");
+
+                // Check if it matches the current target.
+                // If it does, hide the target and move on to the next target.
+                if( targetText.match(re) !== null ){
+                    $(this).parent().parent().hide();
+                    break;
+                }
+            }
+        });
+    } else { // Not using regex?
+        // Just find all places where the term is written, as-is, and hide that.
+        for(var i=0; i<terms.length;i++){
+            $(aSelector + ":contains("+terms[i]+")").parent().parent().hide();
         }
     }
 }
+function applyAllFilters(){
+    // Show everything by default
+    $("a[id*=Rubrik]").parent().parent().show();
+
+    // Then filter out based on Rubrik, Arbetsgivare, Arbetsort
+    filterOut(abfSettings.noTitles,"a[id*=Rubrik]",abfSettings.regexTitles);
+    filterOut(abfSettings.noCompanies,"span[id*=Arbetsgivare]",abfSettings.regexCompanies);
+    filterOut(abfSettings.noCities,"span[id*=Arbetsort]",abfSettings.regexCities);
+}
+applyAllFilters();
+
+
+
+// Make it possible to save settings based on what is manually typed into the textareas.
+// Empty lines are ignored.
+$('#saveUnwantedTitles').click(function(){
+    var newArray = $('#unwantedTitles').val().split("\n");
+    var cleanArray = [];
+    for(var i=0; i<newArray.length; i++){
+        if(newArray[i] !== ""){
+            cleanArray.push(newArray[i]);
+        }
+    }
+    abfSettings.noTitles = cleanArray;
+    saveSettings();
+    applyAllFilters();
+});
+$('#saveUnwantedCompanies').click(function(){
+    var newArray = $('#unwantedCompanies').val().split("\n");
+    var cleanArray = [];
+    for(var i=0; i<newArray.length; i++){
+        if(newArray[i] !== ""){
+            cleanArray.push(newArray[i]);
+        }
+    }
+    abfSettings.noCompanies = cleanArray;
+    saveSettings();
+    applyAllFilters();
+});
+$('#saveUnwantedCities').click(function(){
+    var newArray = $('#unwantedCities').val().split("\n");
+    var cleanArray = [];
+    for(var i=0; i<newArray.length; i++){
+        if(newArray[i] !== ""){
+            cleanArray.push(newArray[i]);
+        }
+    }
+    abfSettings.noCities = cleanArray;
+    saveSettings();
+    applyAllFilters();
+});
+
+// Make it possible to apply the Regex-settings by checking them
+$('#regexTitles').click(function(){
+    abfSettings.regexTitles = $(this).is(':checked');
+    saveSettings();
+    applyAllFilters();
+});
+$('#regexCompanies').click(function(){
+    abfSettings.regexCompanies = $(this).is(':checked');
+    saveSettings();
+    applyAllFilters();
+});
+$('#regexCities').click(function(){
+    abfSettings.regexCities = $(this).is(':checked');
+    saveSettings();
+    applyAllFilters();
+});
