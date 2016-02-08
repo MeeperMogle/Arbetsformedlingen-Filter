@@ -10,7 +10,7 @@
 // @resource   uiCSS http://code.jquery.com/ui/1.11.4/themes/smoothness/jquery-ui.css
 // @grant      GM_addStyle
 // @grant      GM_getResourceText
-// ==/UserScript==
+// ==/UserScript==a
 
 // Name of this project
 var projectName = "Arbetsförmedlingen filter";
@@ -42,7 +42,7 @@ $(function() {
 $(function() {
     $( "#settingsDialog" ).dialog(
         {
-            autoOpen: true,
+            autoOpen: false,
             width: 650,
             height: 540,
             resizable: true,
