@@ -10,7 +10,7 @@
 // @resource   uiCSS http://code.jquery.com/ui/1.11.4/themes/smoothness/jquery-ui.css
 // @grant      GM_addStyle
 // @grant      GM_getResourceText
-// ==/UserScript==a
+// ==/UserScript==
 
 // Name of this project
 var projectName = "Arbetsförmedlingen filter";
@@ -185,6 +185,7 @@ $('#saveUnwantedTitles').click(function(){
             cleanArray.push(newArray[i]);
         }
     }
+    cleanArray.sort();
     abfSettings.noTitles = cleanArray;
     saveSettings();
     applyAllFilters();
@@ -197,6 +198,7 @@ $('#saveUnwantedCompanies').click(function(){
             cleanArray.push(newArray[i]);
         }
     }
+    cleanArray.sort();
     abfSettings.noCompanies = cleanArray;
     saveSettings();
     applyAllFilters();
@@ -209,6 +211,7 @@ $('#saveUnwantedCities').click(function(){
             cleanArray.push(newArray[i]);
         }
     }
+    cleanArray.sort();
     abfSettings.noCities = cleanArray;
     saveSettings();
     applyAllFilters();
