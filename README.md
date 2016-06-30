@@ -5,6 +5,7 @@ Filter out unwanted search results in Platsbanken based on the name of the
 * Title of job-posting
 * Company placing the job-posting
 * City placement
+* Date of placement for job-posting
 
 Built-in support for Chrome (preferred) and possibly Firefox with
 * Chrome TamperMonkey https://chrome.google.com/webstore/detail/tampermonkey/dhdgffkkebhmkfjojejmpbldmpobfkfo
