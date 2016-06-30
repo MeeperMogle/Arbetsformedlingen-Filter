@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name       Arbetsförmedlingen Filter
-// @version    2.0.0
+// @version    2.1.0
 // @author     Mogle
 // @namespace  https://github.com/MeeperMogle
 // @match      http*://www.arbetsformedlingen.se/*
@@ -80,6 +80,11 @@ settingsHtml += "<h3 title='Visa inte jobb som är på Arbetsorter med dessa ord
 settingsHtml += "<textarea style='width:100%;height:100px;resize:both;' id=unwantedCities></textarea>";
 settingsHtml += "<br><input type=submit value=Spara id=saveUnwantedCities>";
 settingsHtml += "<span style='float:right';><input type=checkbox id=regexCities> Regex <span class=regexInfo>(avancerat)</span></span>";
+settingsHtml += "<br><hr><br>";
+settingsHtml += "<h3 title='Visa inte jobb Publicerade dessa datum. En per rad.'>Inte dessa Publiceringsdatum</h3>";
+settingsHtml += "<textarea style='width:100%;height:100px;resize:both;' id=unwantedDates></textarea>";
+settingsHtml += "<br><input type=submit value=Spara id=saveUnwantedDates>";
+settingsHtml += "<span style='float:right';><input type=checkbox id=regexDates> Regex <span class=regexInfo>(avancerat)</span></span>";
 $('#settingsDialog').append(settingsHtml);
 
 $('.regexInfo').css('text-decoration','underline').attr('title','Avancerad filtrering. Klicka för mer information.');
@@ -98,15 +103,17 @@ function saveSettings(){
 }
 function loadSettings(){
     abfSettings = localStorage.getItem("abfFilterSettings");
-    
+
     if(abfSettings === null){
         abfSettings = {
             noTitles: ["arbetslös","sjukskriven"],
             noCompanies: ["elakt företag","dåliga villkor ab"],
             noCities: ["månen","mars"],
+            noDates: ["1900-01-01"],
             regexTitles: false,
             regexCompanies: false,
-            regexCities: false
+            regexCities: false,
+            regexDates: false
         };
         saveSettings();
     } else {
@@ -116,19 +123,21 @@ function loadSettings(){
 loadSettings();
 
 // Populate the Settings with the correct values
-for(var i=0; i<abfSettings.noTitles.length;i++){
-    $('#unwantedTitles').append(abfSettings.noTitles[i] + "\n");
+function populateSettings(thingName, theArray){
+    for(var i=0; i<theArray.length;i++){
+        $('#unwanted'+thingName).append(theArray[i] + "\n");
+    }
 }
-for(var i=0; i<abfSettings.noCompanies.length;i++){
-    $('#unwantedCompanies').append(abfSettings.noCompanies[i] + "\n");
-}
-for(var i=0; i<abfSettings.noCities.length;i++){
-    $('#unwantedCities').append(abfSettings.noCities[i] + "\n");
-}
+populateSettings('Titles', abfSettings.noTitles);
+populateSettings('Companies', abfSettings.noCompanies);
+populateSettings('Cities', abfSettings.noCities);
+populateSettings('Dates', abfSettings.noDates);
+
 
 $('#regexTitles').attr('checked',abfSettings.regexTitles);
 $('#regexCompanies').attr('checked',abfSettings.regexCompanies);
 $('#regexCities').attr('checked',abfSettings.regexCities);
+$('#regexDates').attr('checked',abfSettings.regexDates);
 
 
 
@@ -170,6 +179,7 @@ function applyAllFilters(){
     filterOut(abfSettings.noTitles,"a[id*=Rubrik]",abfSettings.regexTitles);
     filterOut(abfSettings.noCompanies,"span[id*=Arbetsgivare]",abfSettings.regexCompanies);
     filterOut(abfSettings.noCities,"span[id*=Arbetsort]",abfSettings.regexCities);
+    filterOut(abfSettings.noDates,"span[id*=Publiceringsdatum]",abfSettings.regexDates);
 }
 applyAllFilters();
 
@@ -177,8 +187,10 @@ applyAllFilters();
 
 // Make it possible to save settings based on what is manually typed into the textareas.
 // Empty lines are ignored.
-$('#saveUnwantedTitles').click(function(){
-    var newArray = $('#unwantedTitles').val().split("\n");
+function saveButtonClickFunction(){
+    var thing = $(this).attr('id').replace('saveUnwanted','');
+    
+    var newArray = $('#unwanted'+thing).val().split("\n");
     var cleanArray = [];
     for(var i=0; i<newArray.length; i++){
         if(newArray[i] !== ""){
@@ -186,50 +198,50 @@ $('#saveUnwantedTitles').click(function(){
         }
     }
     cleanArray.sort();
-    abfSettings.noTitles = cleanArray;
-    saveSettings();
-    applyAllFilters();
-});
-$('#saveUnwantedCompanies').click(function(){
-    var newArray = $('#unwantedCompanies').val().split("\n");
-    var cleanArray = [];
-    for(var i=0; i<newArray.length; i++){
-        if(newArray[i] !== ""){
-            cleanArray.push(newArray[i]);
-        }
+    
+    switch(thing){
+        case "Titles":
+            abfSettings.noTitles = cleanArray;
+            break;
+        case "Companies":
+            abfSettings.noCompanies = cleanArray;
+            break;
+        case "Cities":
+            abfSettings.noCities = cleanArray;
+            break;
+        case "Dates":
+            abfSettings.noDates = cleanArray;
+            break;
     }
-    cleanArray.sort();
-    abfSettings.noCompanies = cleanArray;
+    
     saveSettings();
     applyAllFilters();
-});
-$('#saveUnwantedCities').click(function(){
-    var newArray = $('#unwantedCities').val().split("\n");
-    var cleanArray = [];
-    for(var i=0; i<newArray.length; i++){
-        if(newArray[i] !== ""){
-            cleanArray.push(newArray[i]);
-        }
-    }
-    cleanArray.sort();
-    abfSettings.noCities = cleanArray;
-    saveSettings();
-    applyAllFilters();
-});
+}
+
+$('#saveUnwantedTitles, #saveUnwantedCompanies, #saveUnwantedCities, #saveUnwantedDates').click(saveButtonClickFunction);
+
 
 // Make it possible to apply the Regex-settings by checking them
-$('#regexTitles').click(function(){
-    abfSettings.regexTitles = $(this).is(':checked');
+function flipRegexCheckBox(){
+    var thing = $(this).attr('id').replace('regex','');
+
+    switch(thing){
+        case "Titles":
+            abfSettings.regexTitles = $(this).is(':checked');
+            break;
+        case "Companies":
+            abfSettings.regexCompanies = $(this).is(':checked');
+            break;
+        case "Cities":
+            abfSettings.regexCities = $(this).is(':checked');
+            break;
+        case "Dates":
+            abfSettings.regexDates = $(this).is(':checked');
+            break;
+    }
+
     saveSettings();
     applyAllFilters();
-});
-$('#regexCompanies').click(function(){
-    abfSettings.regexCompanies = $(this).is(':checked');
-    saveSettings();
-    applyAllFilters();
-});
-$('#regexCities').click(function(){
-    abfSettings.regexCities = $(this).is(':checked');
-    saveSettings();
-    applyAllFilters();
-});
+}
+
+$('#regexDates, #regexTitles, #regexCompanies, #regexCities').click(flipRegexCheckBox);
