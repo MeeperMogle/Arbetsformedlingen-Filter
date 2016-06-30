@@ -23,8 +23,8 @@ $.expr[":"].contains = $.expr.createPseudo(function(arg) {
 });
 
 // Add jQuery UI-stylesheet to the page
-var uiCSS = GM_getResourceText ("uiCSS");
-GM_addStyle (uiCSS);
+//var uiCSS = GM_getResourceText ("uiCSS");
+//GM_addStyle (uiCSS);
 
 // Add button to the page for showing the filter-settings
 var settingsButton = "<input type=button value='Filter' id=filterButton>";
