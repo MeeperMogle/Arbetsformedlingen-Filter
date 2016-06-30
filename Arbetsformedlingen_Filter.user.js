@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name       Arbetsförmedlingen Filter
-// @version    2.1.0
+// @version    2.2.0
 // @author     Mogle
 // @namespace  https://github.com/MeeperMogle
 // @match      http*://www.arbetsformedlingen.se/*
@@ -85,6 +85,9 @@ settingsHtml += "<h3 title='Visa inte jobb Publicerade dessa datum. En per rad.'
 settingsHtml += "<textarea style='width:100%;height:100px;resize:both;' id=unwantedDates></textarea>";
 settingsHtml += "<br><input type=submit value=Spara id=saveUnwantedDates>";
 settingsHtml += "<span style='float:right';><input type=checkbox id=regexDates> Regex <span class=regexInfo>(avancerat)</span></span>";
+settingsHtml += "<br><br>";
+settingsHtml += "<button id=copySettingsText style=float:left;>Copy settings</button>";
+settingsHtml += "<button id=pasteSettingsText style=float:right;>Paste settings</button>";
 $('#settingsDialog').append(settingsHtml);
 
 $('.regexInfo').css('text-decoration','underline').attr('title','Avancerad filtrering. Klicka för mer information.');
@@ -124,6 +127,7 @@ loadSettings();
 
 // Populate the Settings with the correct values
 function populateSettings(thingName, theArray){
+    $('#unwanted'+thingName).text("");
     for(var i=0; i<theArray.length;i++){
         $('#unwanted'+thingName).append(theArray[i] + "\n");
     }
@@ -189,7 +193,7 @@ applyAllFilters();
 // Empty lines are ignored.
 function saveButtonClickFunction(){
     var thing = $(this).attr('id').replace('saveUnwanted','');
-    
+
     var newArray = $('#unwanted'+thing).val().split("\n");
     var cleanArray = [];
     for(var i=0; i<newArray.length; i++){
@@ -198,7 +202,7 @@ function saveButtonClickFunction(){
         }
     }
     cleanArray.sort();
-    
+
     switch(thing){
         case "Titles":
             abfSettings.noTitles = cleanArray;
@@ -213,7 +217,7 @@ function saveButtonClickFunction(){
             abfSettings.noDates = cleanArray;
             break;
     }
-    
+
     saveSettings();
     applyAllFilters();
 }
@@ -245,3 +249,51 @@ function flipRegexCheckBox(){
 }
 
 $('#regexDates, #regexTitles, #regexCompanies, #regexCities').click(flipRegexCheckBox);
+
+
+// Test the validity of the settings in the given JSON-object
+function validSettings(jsonSettings){
+    return (
+        jsonSettings.noTitles instanceof Array && jsonSettings.regexTitles !== undefined &&
+        jsonSettings.noCompanies instanceof Array && jsonSettings.regexCompanies !== undefined &&
+        jsonSettings.noCities instanceof Array && jsonSettings.regexCities !== undefined &&
+        jsonSettings.noDates instanceof Array && jsonSettings.regexDates !== undefined
+    );
+}
+
+
+// Easier transfer of settings between computers: Copy the settings as text
+$('#copySettingsText').click(function(){
+    alert( JSON.stringify(abfSettings) );
+});
+
+
+// Easier transfer of settings between computers: Paste the settings as text
+$('#pasteSettingsText').click(function(){
+    var supposedSettings = prompt("Paste settings copied from the script...");
+
+    try{
+        var jsonIfied = JSON.parse(supposedSettings);
+
+        if(validSettings(jsonIfied)){
+            abfSettings = jsonIfied;
+            saveSettings();
+
+            populateSettings('Titles', abfSettings.noTitles);
+            populateSettings('Companies', abfSettings.noCompanies);
+            populateSettings('Cities', abfSettings.noCities);
+            populateSettings('Dates', abfSettings.noDates);
+
+            $('#regexTitles').attr('checked',abfSettings.regexTitles);
+            $('#regexCompanies').attr('checked',abfSettings.regexCompanies);
+            $('#regexCities').attr('checked',abfSettings.regexCities);
+            $('#regexDates').attr('checked',abfSettings.regexDates);
+
+            applyAllFilters();
+        } else {
+            throw "meep";
+        }
+    } catch(e){
+        alert("This does not look like the correct format for settings.\nPlease only use directly copied settings-strings.");
+    }
+});
