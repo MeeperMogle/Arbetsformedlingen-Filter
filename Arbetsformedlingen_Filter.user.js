@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name       Arbetsförmedlingen Filter
-// @version    2.2.0
+// @version    2.3.0
 // @author     Mogle
 // @namespace  https://github.com/MeeperMogle
 // @match      http*://www.arbetsformedlingen.se/*
@@ -88,7 +88,7 @@ settingsHtml += "<span style='float:right';><input type=checkbox id=regexDates> 
 settingsHtml += "<br><br>";
 settingsHtml += "<button id=copySettingsText style=float:left;>Copy settings</button>";
 settingsHtml += "<button id=pasteSettingsText style=float:right;>Paste settings</button>";
-$('#settingsDialog').append(settingsHtml);
+$('#settingsDialog').append("<div>" + settingsHtml + "</div>");
 
 $('.regexInfo').css('text-decoration','underline').attr('title','Avancerad filtrering. Klicka för mer information.');
 $('.regexInfo').click(function(){
@@ -127,21 +127,28 @@ loadSettings();
 
 // Populate the Settings with the correct values
 function populateSettings(thingName, theArray){
-    $('#unwanted'+thingName).text("");
+    var completeText = "";
+
     for(var i=0; i<theArray.length;i++){
-        $('#unwanted'+thingName).append(theArray[i] + "\n");
+        completeText += theArray[i] + "\n";
     }
+
+    $('#unwanted'+thingName).text(completeText);
+    $('#unwanted'+thingName).val(completeText);
 }
-populateSettings('Titles', abfSettings.noTitles);
-populateSettings('Companies', abfSettings.noCompanies);
-populateSettings('Cities', abfSettings.noCities);
-populateSettings('Dates', abfSettings.noDates);
 
+function mirrorAllSettings(){
+    populateSettings('Titles', abfSettings.noTitles);
+    populateSettings('Companies', abfSettings.noCompanies);
+    populateSettings('Cities', abfSettings.noCities);
+    populateSettings('Dates', abfSettings.noDates);
 
-$('#regexTitles').attr('checked',abfSettings.regexTitles);
-$('#regexCompanies').attr('checked',abfSettings.regexCompanies);
-$('#regexCities').attr('checked',abfSettings.regexCities);
-$('#regexDates').attr('checked',abfSettings.regexDates);
+    $('#regexTitles').attr('checked',abfSettings.regexTitles);
+    $('#regexCompanies').attr('checked',abfSettings.regexCompanies);
+    $('#regexCities').attr('checked',abfSettings.regexCities);
+    $('#regexDates').attr('checked',abfSettings.regexDates);
+}
+mirrorAllSettings();
 
 
 
@@ -203,20 +210,7 @@ function saveButtonClickFunction(){
     }
     cleanArray.sort();
 
-    switch(thing){
-        case "Titles":
-            abfSettings.noTitles = cleanArray;
-            break;
-        case "Companies":
-            abfSettings.noCompanies = cleanArray;
-            break;
-        case "Cities":
-            abfSettings.noCities = cleanArray;
-            break;
-        case "Dates":
-            abfSettings.noDates = cleanArray;
-            break;
-    }
+    abfSettings["no"+thing] = cleanArray;
 
     saveSettings();
     applyAllFilters();
@@ -229,20 +223,7 @@ $('#saveUnwantedTitles, #saveUnwantedCompanies, #saveUnwantedCities, #saveUnwant
 function flipRegexCheckBox(){
     var thing = $(this).attr('id').replace('regex','');
 
-    switch(thing){
-        case "Titles":
-            abfSettings.regexTitles = $(this).is(':checked');
-            break;
-        case "Companies":
-            abfSettings.regexCompanies = $(this).is(':checked');
-            break;
-        case "Cities":
-            abfSettings.regexCities = $(this).is(':checked');
-            break;
-        case "Dates":
-            abfSettings.regexDates = $(this).is(':checked');
-            break;
-    }
+    abfSettings["regex"+thing] = $(this).is(':checked');
 
     saveSettings();
     applyAllFilters();
@@ -253,24 +234,37 @@ $('#regexDates, #regexTitles, #regexCompanies, #regexCities').click(flipRegexChe
 
 // Test the validity of the settings in the given JSON-object
 function validSettings(jsonSettings){
-    return (
-        jsonSettings.noTitles instanceof Array && jsonSettings.regexTitles !== undefined &&
-        jsonSettings.noCompanies instanceof Array && jsonSettings.regexCompanies !== undefined &&
-        jsonSettings.noCities instanceof Array && jsonSettings.regexCities !== undefined &&
-        jsonSettings.noDates instanceof Array && jsonSettings.regexDates !== undefined
-    );
+    var allGood = true;
+
+    for(var key in jsonSettings){        
+        // Textarea-content are stored inside objects of type Array
+        if(key.startsWith("no")){
+            allGood = jsonSettings[key] instanceof Array;
+        }
+        // Checkbox-flag values cannot be "undefined"
+        else if(key.startsWith("regex")){
+            allGood = jsonSettings[key] !== undefined;
+        }
+
+        // Force stop if something is amiss
+        if(!allGood){
+            break;
+        }
+    }
+
+    return allGood;
 }
 
 
 // Easier transfer of settings between computers: Copy the settings as text
 $('#copySettingsText').click(function(){
-    alert( JSON.stringify(abfSettings) );
+    prompt( "This text can be copied, saved and later pasted to restore your settings.", JSON.stringify(abfSettings) );
 });
 
 
 // Easier transfer of settings between computers: Paste the settings as text
 $('#pasteSettingsText').click(function(){
-    var supposedSettings = prompt("Paste settings copied from the script...");
+    var supposedSettings = prompt("Paste settings-text to restore settings.\nWARNING: Deletes current settings!");
 
     try{
         var jsonIfied = JSON.parse(supposedSettings);
@@ -279,15 +273,7 @@ $('#pasteSettingsText').click(function(){
             abfSettings = jsonIfied;
             saveSettings();
 
-            populateSettings('Titles', abfSettings.noTitles);
-            populateSettings('Companies', abfSettings.noCompanies);
-            populateSettings('Cities', abfSettings.noCities);
-            populateSettings('Dates', abfSettings.noDates);
-
-            $('#regexTitles').attr('checked',abfSettings.regexTitles);
-            $('#regexCompanies').attr('checked',abfSettings.regexCompanies);
-            $('#regexCities').attr('checked',abfSettings.regexCities);
-            $('#regexDates').attr('checked',abfSettings.regexDates);
+            mirrorAllSettings();
 
             applyAllFilters();
         } else {
