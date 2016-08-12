@@ -7,6 +7,8 @@ Filter out unwanted search results in Platsbanken based on the name of the
 * City placement
 * Date of placement for job-posting
 
+(NEW) Insert colours into the texts in job-postings. For example, mark every mention of "puppy" in "gold".
+
 Settings can be moved between computers by copy-pasting some text, which contains all preferences.
 
 Built-in support for Chrome (preferred) and possibly Firefox with
