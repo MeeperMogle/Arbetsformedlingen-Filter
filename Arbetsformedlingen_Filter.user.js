@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name       Arbetsförmedlingen Filter
-// @version    2.4.0
+// @version    2.4.1
 // @author     Mogle
 // @namespace  https://github.com/MeeperMogle
 // @match      http*://www.arbetsformedlingen.se/*
@@ -157,8 +157,8 @@ function saveSettings(){
 }
 function loadSettings(resetSettings){
     abfSettings = localStorage.getItem("abfFilterSettings");
-
-    if(abfSettings == "null" || resetSettings){
+    
+    if(abfSettings === null || resetSettings){
         abfSettings = {
             noTitles: ["arbetslös","sjukskriven"],
             noCompanies: ["elakt företag","dåliga villkor ab"],
