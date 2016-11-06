@@ -1,9 +1,11 @@
 Arbetsformedlingen-Filter
 ================
 
-# Discontinued
+# To be continued
 
-Since Arbetsförmedlingen has remade their entire website to dynamically add, change and move around data in a one-page-application style on their pages it is no longer viable to continue updating this script - as it is near-impossible to interact with the site en-masse any more.
+Since Arbetsförmedlingen has remade their entire website to dynamically add, change and move around data in a one-page-application style on their pages this script is going to need a big rewrite.
+
+It will be updated with a new version as soon as it works close enough to the way it did before the changes of Platsbanken.
 
 ------
 
